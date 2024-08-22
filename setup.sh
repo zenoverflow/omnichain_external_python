@@ -173,6 +173,7 @@ fi
 
 # Install other dependencies
 python -m pip install "fastapi[standard]" transformers pillow huggingface_hub
+python -m pip install flash_attn einops timm
 
 # Exit if other dependencies installation failed
 if [ $? -ne 0 ]; then

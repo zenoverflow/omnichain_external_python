@@ -1,6 +1,8 @@
 import torch
 from PIL import Image
 from transformers import AutoProcessor, AutoModelForCausalLM
+from io import BytesIO
+import base64
 
 
 class Florence2Inference:
@@ -31,6 +33,10 @@ class Florence2Inference:
     def __del__(self):
         del self.model
         del self.processor
+        try:
+            torch.cuda.empty_cache()
+        except:
+            pass
 
     def inference(
         self,
@@ -44,7 +50,7 @@ class Florence2Inference:
             prompt = task_prompt + text_input
 
         # decode image from base64
-        image = Image.open(imageRaw)
+        image = Image.open(BytesIO(base64.b64decode(imageRaw))).convert("RGB")
 
         inputs = self.processor(text=prompt, images=image, return_tensors="pt").to(
             self.device, self.torch_dtype
@@ -54,6 +60,8 @@ class Florence2Inference:
             input_ids=inputs["input_ids"],
             pixel_values=inputs["pixel_values"],
             max_new_tokens=1024,
+            early_stopping=False,
+            do_sample=False,
             num_beams=3,
         )
         generated_text = self.processor.batch_decode(

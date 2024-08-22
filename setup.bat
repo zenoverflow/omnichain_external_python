@@ -157,6 +157,7 @@ goto :install_dependencies
 REM Install other dependencies
 :install_dependencies
 python -m pip install "fastapi[standard]" transformers pillow huggingface_hub
+python -m pip install flash_attn einops timm
 
 REM Exit if other dependencies installation failed
 if not "%errorlevel%"=="0" (

@@ -10,7 +10,7 @@ def setup_florence2(app: FastAPI) -> None:
     Setup Florence2 routes.
     """
 
-    app.post("/florence2/load/{device}")(florence2_load)
+    app.post("/florence2/load/")(florence2_load)
 
     app.post("/florence2/unload")(florence2_unload)
 

@@ -42,4 +42,4 @@ if __name__ == "__main__":
     for custom_module_setup in get_custom_modules():
         custom_module_setup(app)
 
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=args.host, port=args.port, timeout_keep_alive=999999)
