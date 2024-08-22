@@ -10,9 +10,11 @@ class Florence2LoadData(BaseModel):
 
     Attributes:
     - device: str: The device to load the model to.
+    - model: str: The model to download from HuggingFace hub.
     """
 
     device: str
+    model: str | None = None
 
 
 async def florence2_load(data: Florence2LoadData):
@@ -20,4 +22,13 @@ async def florence2_load(data: Florence2LoadData):
     Load the Florence2 model to RAM/VRAM.
     """
 
-    load_inference(inference_name, Florence2Inference(device=data.device))
+    if data.model is not None:
+        load_inference(
+            inference_name,
+            Florence2Inference(device=data.device, model=data.model),
+        )
+    else:
+        load_inference(
+            inference_name,
+            Florence2Inference(device=data.device),
+        )

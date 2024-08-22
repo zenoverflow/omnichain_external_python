@@ -6,7 +6,7 @@ import base64
 
 
 class Florence2Inference:
-    def __init__(self, device: str = "cpu"):
+    def __init__(self, device: str = "cpu", model: str = "microsoft/Florence-2-large"):
         if device == "cuda":
             if not torch.cuda.is_available():
                 raise ValueError("CUDA is not available on this device.")
@@ -18,17 +18,12 @@ class Florence2Inference:
         self.torch_dtype = torch.float16 if self.device == "cuda" else torch.float32
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            "microsoft/Florence-2-large",
+            model,
             torch_dtype=self.torch_dtype,
             trust_remote_code=True,
         ).to(self.device)
 
-        self.processor = AutoProcessor.from_pretrained(
-            "microsoft/Florence-2-large", trust_remote_code=True
-        )
-
-        # url = "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/tasks/car.jpg?download=true"
-        # self.image = Image.open(requests.get(url, stream=True).raw)
+        self.processor = AutoProcessor.from_pretrained(model, trust_remote_code=True)
 
     def __del__(self):
         del self.model
