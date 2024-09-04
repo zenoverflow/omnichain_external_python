@@ -11,7 +11,37 @@ def setup_cuda_env():
     )
 
 
+def version_check():
+    import requests
+
+    try:
+        res = requests.get(
+            "https://api.github.com/repos/zenoverflow/omnichain_external_python/contents/VERSION"
+        )
+
+        if res.status_code != 200:
+            raise Exception(res.text)
+
+        with open("VERSION", "r") as file_version:
+            current_version = file_version.read().strip()
+
+        latest_version = res.text.strip()
+
+        if latest_version != current_version:
+            message = " ".join(
+                [
+                    f"A new version is available (v{current_version} => v{latest_version})",
+                    "To get the latest fixes and features, shut down the server",
+                    "and run `setup.sh` (or `setup.bat` on Windows) to update.",
+                ]
+            )
+            print(message)
+    except Exception as e:
+        print("Failed to check for updates:", e)
+
+
 if __name__ == "__main__":
+    version_check()
     setup_cuda_env()
 
     from modules.florence2 import setup_florence2
