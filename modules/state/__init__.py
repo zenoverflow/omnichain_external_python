@@ -14,14 +14,20 @@ def unload_inference(inference_name: str) -> None:
     gc.collect()
 
 
-def load_inference(inference_name: str, inference: any) -> None:
+def load_inference(inference_name: str, inference: any, force_reload=True) -> None:
     """
     Load inference module into state.
     """
 
-    if inference_name in state:
-        unload_inference(inference_name)
-    state[inference_name] = inference
+    if force_reload:
+        if inference_name in state:
+            unload_inference(inference_name)
+        state[inference_name] = inference
+    else:
+        if inference_name in state:
+            return
+        else:
+            state[inference_name] = inference
 
 
 def get_inference(inference_name: str) -> any:

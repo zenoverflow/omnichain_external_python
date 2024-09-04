@@ -135,13 +135,15 @@ fi
 # Activate miniconda
 source "$(pwd)/miniconda/bin/activate"
 
-# Create conda environment with Python 3.11
-conda create -n $CONDA_ENV python=3.11 -y
+# If it doesn't exist create conda environment with Python 3.11
+if [ ! -d "$(pwd)/miniconda/envs/$CONDA_ENV" ]; then
+    conda create -n $CONDA_ENV python=3.11 -y
 
-# Exit if conda environment creation failed
-if [ $? -ne 0 ]; then
-    echo "Conda environment creation failed"
-    exit 1
+    # Exit if conda environment creation failed
+    if [ $? -ne 0 ]; then
+        echo "Conda environment creation failed"
+        exit 1
+    fi
 fi
 
 # Activate the conda environment
@@ -171,9 +173,24 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# If using CUDA, install CUDA and cuDNN stuff via conda
+if [ $INFERENCE_DEVICE == "cuda" ]; then
+    conda install -y nvidia/label/cuda-$CUDA_VERSION::cuda cudnn=8.9.2.26 -c nvidia -c nvidia/label/cuda-$CUDA_VERSION
+fi
+
+# Exit if CUDA installation failed
+if [ $? -ne 0 ]; then
+    echo "CUDA installation failed"
+    exit 1
+fi
+
 # Install other dependencies
-python -m pip install "fastapi[standard]" transformers pillow huggingface_hub
-python -m pip install flash_attn einops timm
+python -m pip install "fastapi[standard]" transformers pillow huggingface_hub flash_attn einops timm faster-whisper
+
+# Downgrade ctranslate2 if using CUDA 11.8 (allows FasterWhisper to use GPU with CUDA 11.8)
+if [ $CUDA_VERSION == "11.8" ]; then
+    python -m pip install --force-reinstall ctranslate2==3.24.0
+fi
 
 # Exit if other dependencies installation failed
 if [ $? -ne 0 ]; then

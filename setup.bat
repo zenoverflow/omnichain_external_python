@@ -3,9 +3,16 @@
 set CUDA_VERSION=12.4
 set INFERENCE_DEVICE=cpu
 
+:: Get operating system (Linux/Darwin)
+for /f "delims=" %%i in ('uname') do set OPERATING_SYSTEM=%%i
+
+:: Get CPU architecture (x86_64/arm64)
+for /f "delims=" %%i in ('uname -m') do set CPU_ARCHITECTURE=%%i
+
+:: Conda env name
 set CONDA_ENV=oc_external
 
-REM Usage function
+:: Usage function
 :usage
 echo Usage: %0 [options]
 echo Options:
@@ -14,7 +21,9 @@ echo       Specify the device for inference.
 echo       Values:
 echo           cpu: CPU
 echo           cuda: NVIDIA GPU (CUDA)
+echo           rocm: AMD GPU (ROCm 6.1)
 echo       Default: cpu
+echo       Note: CUDA and ROCm are only supported on Linux
 echo.
 echo   --cuda_version=<CUDA_VERSION>
 echo       Specify the CUDA version for inference.
@@ -29,7 +38,7 @@ echo   -h, --help
 echo       Show this help message and exit.
 goto :eof
 
-REM Parse arguments
+:: Parse arguments
 :parse_arguments
 setlocal enabledelayedexpansion
 for %%i in (%*) do (
@@ -45,123 +54,162 @@ for %%i in (%*) do (
         call :usage
         exit /b 0
     ) else (
-        echo Invalid argument: %%i
+        echo Invalid argument: !arg!
         call :usage
         exit /b 1
     )
 )
 endlocal & set INFERENCE_DEVICE=%INFERENCE_DEVICE% & set CUDA_VERSION=%CUDA_VERSION%
-goto :validate_device
+goto :validate_inference_device
 
-REM Validate inference device
-:validate_device
-if "%INFERENCE_DEVICE%" neq "cpu" if "%INFERENCE_DEVICE%" neq "cuda" (
+:: Validate inference device
+:validate_inference_device
+if not "%INFERENCE_DEVICE%"=="cpu" if not "%INFERENCE_DEVICE%"=="cuda" if not "%INFERENCE_DEVICE%"=="rocm" (
     echo Invalid inference device
     exit /b 1
 )
 goto :validate_cuda_version
 
-REM Validate CUDA version
+:: Validate CUDA version
 :validate_cuda_version
 if "%INFERENCE_DEVICE%"=="cpu" (
     set CUDA_VERSION=
 ) else if "%INFERENCE_DEVICE%"=="cuda" (
-    REM Make sure CUDA version is one of the supported versions (11.8 / 12.1 / 12.4)
-    if "%CUDA_VERSION%" neq "11.8" if "%CUDA_VERSION%" neq "12.1" if "%CUDA_VERSION%" neq "12.4" (
+    if not "%CUDA_VERSION%"=="11.8" if not "%CUDA_VERSION%"=="12.1" if not "%CUDA_VERSION%"=="12.4" (
         echo Invalid CUDA version
         exit /b 1
     )
 )
 goto :setup_miniconda
 
-REM Setup miniconda if it doesn't exist
+:: Setup miniconda if it doesn't exist
 :setup_miniconda
 if not exist "%cd%\miniconda" (
-    REM Remove old installation script
-    del miniconda.bat
+    :: Remove old installation script
+    del /f miniconda.bat
 
-    REM Download and install miniconda for Windows
-    powershell -Command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe', 'miniconda.exe')"
-    
-    REM Stop if download failed
-    if not exist miniconda.exe (
+    :: Download and install miniconda for the current operating system
+    if "%OPERATING_SYSTEM%"=="Darwin" (
+        if "%CPU_ARCHITECTURE%"=="x86_64" (
+            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh', 'miniconda.sh')"
+        ) else if "%CPU_ARCHITECTURE%"=="arm64" (
+            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh', 'miniconda.sh')"
+        ) else (
+            echo Unsupported CPU architecture for miniconda3
+            exit /b 1
+        )
+    ) else if "%OPERATING_SYSTEM%"=="Linux" (
+        if "%CPU_ARCHITECTURE%"=="x86_64" (
+            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh', 'miniconda.sh')"
+        ) else if "%CPU_ARCHITECTURE%"=="arm64" (
+            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh', 'miniconda.sh')"
+        ) else (
+            echo Unsupported CPU architecture for miniconda3
+            exit /b 1
+        )
+    ) else (
+        echo Unsupported operating system
+        exit /b 1
+    )
+
+    :: Stop if download failed
+    if not exist miniconda.sh (
         echo Miniconda download failed
         exit /b 1
     )
 
-    REM Install miniconda silently
-    miniconda.exe /S /D="%cd%\miniconda"
+    call miniconda.sh -b -p "%cd%\miniconda"
 
-    REM Stop if installation failed
-    if not exist "%cd%\miniconda" (
+    :: Stop if installation failed
+    if not !errorlevel! equ 0 (
         echo Miniconda installation failed
         exit /b 1
     )
 
-    REM Remove installation script
-    del miniconda.exe
+    :: Remove installation script
+    del /f miniconda.sh
 )
-goto :check_miniconda
+goto :check_miniconda_folder
 
-REM Check if miniconda is missing
-:check_miniconda
+:: Stop if miniconda is missing
+:check_miniconda_folder
 if not exist "%cd%\miniconda" (
     echo Miniconda folder is missing
     exit /b 1
 )
 goto :activate_miniconda
 
-REM Activate miniconda
+:: Activate miniconda
 :activate_miniconda
 call "%cd%\miniconda\Scripts\activate.bat"
 
-REM Create conda environment with Python 3.11
-conda create -n %CONDA_ENV% python=3.11 -y
+:: If it doesn't exist create conda environment with Python 3.11
+if not exist "%cd%\miniconda\envs\%CONDA_ENV%" (
+    conda create -n %CONDA_ENV% python=3.11 -y
 
-REM Exit if conda environment creation failed
-if not "%errorlevel%"=="0" (
-    echo Conda environment creation failed
-    exit /b 1
+    :: Exit if conda environment creation failed
+    if not !errorlevel! equ 0 (
+        echo Conda environment creation failed
+        exit /b 1
+    )
 )
 goto :activate_conda_env
 
-REM Activate the conda environment
+:: Activate the conda environment
 :activate_conda_env
 call "%cd%\miniconda\Scripts\activate.bat" %CONDA_ENV%
 
-REM Exit if conda environment activation failed
-if not "%errorlevel%"=="0" (
+:: Exit if conda environment activation failed
+if not !errorlevel! equ 0 (
     echo Conda environment activation failed
     exit /b 1
 )
 goto :install_pytorch
 
-REM Install pytorch for the specified device (cpu/cuda)
+:: Install pytorch for the specified device (cpu/cuda/rocm)
 :install_pytorch
 if "%INFERENCE_DEVICE%"=="cpu" (
-    conda install pytorch torchvision torchaudio cpuonly -c pytorch -y
+    conda install pytorch torchvision torchaudio cpuonly -c pytorch
 ) else if "%INFERENCE_DEVICE%"=="cuda" (
-    conda install pytorch torchvision torchaudio cudatoolkit=%CUDA_VERSION% -c pytorch -c nvidia -y
+    conda install -y pytorch torchvision torchaudio pytorch-cuda=%CUDA_VERSION% -c pytorch -c nvidia
+) else if "%INFERENCE_DEVICE%"=="rocm" (
+    python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
 ) else (
     echo Invalid inference device
     exit /b 1
 )
 
-REM Exit if pytorch installation failed
-if not "%errorlevel%"=="0" (
+:: Exit if pytorch installation failed
+if not !errorlevel! equ 0 (
     echo PyTorch installation failed
     exit /b 1
 )
-goto :install_dependencies
+goto :install_cuda_dependencies
 
-REM Install other dependencies
-:install_dependencies
-python -m pip install "fastapi[standard]" transformers pillow huggingface_hub
-python -m pip install flash_attn einops timm
+:: If using CUDA, install CUDA and cuDNN stuff via conda
+:install_cuda_dependencies
+if "%INFERENCE_DEVICE%"=="cuda" (
+    conda install -y nvidia/label/cuda-%CUDA_VERSION%::cuda cudnn=8.9.2.26 -c nvidia -c nvidia/label/cuda-%CUDA_VERSION%
+)
 
-REM Exit if other dependencies installation failed
-if not "%errorlevel%"=="0" (
+:: Exit if CUDA installation failed
+if not !errorlevel! equ 0 (
+    echo CUDA installation failed
+    exit /b 1
+)
+goto :install_other_dependencies
+
+:: Install other dependencies
+:install_other_dependencies
+python -m pip install "fastapi[standard]" transformers pillow huggingface_hub flash_attn einops timm faster-whisper
+
+:: Downgrade ctranslate2 if using CUDA 11.8 (allows FasterWhisper to use GPU with CUDA 11.8)
+if "%CUDA_VERSION%"=="11.8" (
+    python -m pip install --force-reinstall ctranslate2==3.24.0
+)
+
+:: Exit if other dependencies installation failed
+if not !errorlevel! equ 0 (
     echo Other dependencies installation failed
     exit /b 1
 )
-goto :eof

@@ -3,8 +3,19 @@ import sys
 sys.dont_write_bytecode = True
 
 
+def setup_cuda_env():
+    import os
+
+    os.environ["LD_LIBRARY_PATH"] = os.path.join(
+        os.getcwd(), "miniconda", "envs", "oc_external", "lib"
+    )
+
+
 if __name__ == "__main__":
+    setup_cuda_env()
+
     from modules.florence2 import setup_florence2
+    from modules.faster_whisper import setup_faster_whisper
 
     from custom_modules import get_custom_modules
 
@@ -37,6 +48,7 @@ if __name__ == "__main__":
 
     # Setup internal module routes.
     setup_florence2(app)
+    setup_faster_whisper(app)
 
     # Setup custom module routes.
     for custom_module_setup in get_custom_modules():
