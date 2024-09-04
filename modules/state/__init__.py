@@ -1,4 +1,6 @@
 import gc
+
+import torch
 from fastapi import HTTPException
 
 state = dict()
@@ -11,6 +13,14 @@ def unload_inference(inference_name: str) -> None:
 
     if inference_name in state:
         del state[inference_name]
+
+    gc.collect()
+
+    try:
+        torch.cuda.empty_cache()
+    except:
+        pass
+
     gc.collect()
 
 
