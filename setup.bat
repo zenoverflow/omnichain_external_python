@@ -3,12 +3,6 @@
 set CUDA_VERSION=12.4
 set INFERENCE_DEVICE=cpu
 
-:: Get operating system (Linux/Darwin)
-for /f "delims=" %%i in ('uname') do set OPERATING_SYSTEM=%%i
-
-:: Get CPU architecture (x86_64/arm64)
-for /f "delims=" %%i in ('uname -m') do set CPU_ARCHITECTURE=%%i
-
 :: Conda env name
 set CONDA_ENV=oc_external
 
@@ -21,7 +15,6 @@ echo       Specify the device for inference.
 echo       Values:
 echo           cpu: CPU
 echo           cuda: NVIDIA GPU (CUDA)
-echo           rocm: AMD GPU (ROCm 6.1)
 echo       Default: cpu
 echo       Note: CUDA and ROCm are only supported on Linux
 echo.
@@ -64,7 +57,7 @@ goto :validate_inference_device
 
 :: Validate inference device
 :validate_inference_device
-if not "%INFERENCE_DEVICE%"=="cpu" if not "%INFERENCE_DEVICE%"=="cuda" if not "%INFERENCE_DEVICE%"=="rocm" (
+if not "%INFERENCE_DEVICE%"=="cpu" if not "%INFERENCE_DEVICE%"=="cuda" (
     echo Invalid inference device
     exit /b 1
 )
@@ -88,29 +81,8 @@ if not exist "%cd%\miniconda" (
     :: Remove old installation script
     del /f miniconda.bat
 
-    :: Download and install miniconda for the current operating system
-    if "%OPERATING_SYSTEM%"=="Darwin" (
-        if "%CPU_ARCHITECTURE%"=="x86_64" (
-            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh', 'miniconda.sh')"
-        ) else if "%CPU_ARCHITECTURE%"=="arm64" (
-            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh', 'miniconda.sh')"
-        ) else (
-            echo Unsupported CPU architecture for miniconda3
-            exit /b 1
-        )
-    ) else if "%OPERATING_SYSTEM%"=="Linux" (
-        if "%CPU_ARCHITECTURE%"=="x86_64" (
-            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh', 'miniconda.sh')"
-        ) else if "%CPU_ARCHITECTURE%"=="arm64" (
-            powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh', 'miniconda.sh')"
-        ) else (
-            echo Unsupported CPU architecture for miniconda3
-            exit /b 1
-        )
-    ) else (
-        echo Unsupported operating system
-        exit /b 1
-    )
+    :: Download and install miniconda for Windows
+    powershell -command "(New-Object System.Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe', 'miniconda.exe')"
 
     :: Stop if download failed
     if not exist miniconda.sh (
@@ -172,8 +144,6 @@ if "%INFERENCE_DEVICE%"=="cpu" (
     conda install pytorch torchvision torchaudio cpuonly -c pytorch
 ) else if "%INFERENCE_DEVICE%"=="cuda" (
     conda install -y pytorch torchvision torchaudio pytorch-cuda=%CUDA_VERSION% -c pytorch -c nvidia
-) else if "%INFERENCE_DEVICE%"=="rocm" (
-    python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
 ) else (
     echo Invalid inference device
     exit /b 1
@@ -204,8 +174,10 @@ goto :install_other_dependencies
 python -m pip install "fastapi[standard]" transformers pillow huggingface_hub flash_attn einops timm faster-whisper
 
 :: Downgrade ctranslate2 if using CUDA 11.8 (allows FasterWhisper to use GPU with CUDA 11.8)
-if "%CUDA_VERSION%"=="11.8" (
-    python -m pip install --force-reinstall ctranslate2==3.24.0
+if "%INFERENCE_DEVICE%"=="cuda" (
+    if "%CUDA_VERSION%"=="11.8" (
+        python -m pip install --force-reinstall ctranslate2==3.24.0
+    )
 )
 
 :: Exit if other dependencies installation failed

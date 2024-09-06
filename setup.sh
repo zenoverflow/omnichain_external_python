@@ -188,7 +188,7 @@ fi
 python -m pip install "fastapi[standard]" transformers pillow huggingface_hub flash_attn einops timm faster-whisper
 
 # Downgrade ctranslate2 if using CUDA 11.8 (allows FasterWhisper to use GPU with CUDA 11.8)
-if [ $CUDA_VERSION == "11.8" ]; then
+if [ $INFERENCE_DEVICE == "cuda" ] && [ $CUDA_VERSION == "11.8" ]; then
     python -m pip install --force-reinstall ctranslate2==3.24.0
 fi
 
