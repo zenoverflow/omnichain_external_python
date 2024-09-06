@@ -17,7 +17,8 @@ def unload_inference(inference_name: str) -> None:
     gc.collect()
 
     try:
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     except:
         pass
 

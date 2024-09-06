@@ -30,7 +30,8 @@ class FasterWhisperInference:
     def __del__(self):
         del self.model
         try:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         except:
             pass
 
