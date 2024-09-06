@@ -7,15 +7,12 @@ def get_custom_modules():
 
     modules = []
 
-    # Iterate over all files in the current directory
-    for file in os.listdir(current_dir):
-        # Check if the file is a Python module
-        if file.endswith(".py") and file != "__init__.py":
-            # Get the module name by removing the file extension
-            module_name = file[:-3]
-
+    # Iterate over all directories in the current directory
+    for directory in os.listdir(current_dir):
+        # Check if the directory is a package
+        if os.path.isdir(os.path.join(current_dir, directory)):
             # Import the module dynamically
-            module = importlib.import_module(f".{module_name}", package=__name__)
+            module = importlib.import_module(f".{directory}", package=__name__)
 
             # Add the module to the list
             modules.append(module.setup)
