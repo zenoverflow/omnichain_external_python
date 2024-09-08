@@ -157,9 +157,9 @@ fi
 
 # Install pytorch for the specified device (cpu/cuda/rocm)
 if [ $INFERENCE_DEVICE == "cpu" ]; then
-    conda install pytorch torchvision torchaudio cpuonly -c pytorch
+    conda install --update-all -y pytorch torchvision torchaudio cpuonly -c pytorch
 elif [ $INFERENCE_DEVICE == "cuda" ]; then
-    conda install -y pytorch torchvision torchaudio pytorch-cuda=$CUDA_VERSION -c pytorch -c nvidia
+    conda install --update-all -y pytorch torchvision torchaudio pytorch-cuda=$CUDA_VERSION -c pytorch -c nvidia
 elif [ $INFERENCE_DEVICE == "rocm" ]; then
     python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
 else
@@ -175,7 +175,7 @@ fi
 
 # If using CUDA, install CUDA and cuDNN stuff via conda
 if [ $INFERENCE_DEVICE == "cuda" ]; then
-    conda install -y nvidia/label/cuda-$CUDA_VERSION::cuda cudnn=8.9.2.26 -c nvidia -c nvidia/label/cuda-$CUDA_VERSION
+    conda install --update-all -y nvidia/label/cuda-$CUDA_VERSION.0::cuda cudnn=8.9.2.26 -c nvidia
 fi
 
 # Exit if CUDA installation failed
@@ -185,15 +185,19 @@ if [ $? -ne 0 ]; then
 fi
 
 # Install other dependencies
-python -m pip install "fastapi[standard]" transformers pillow huggingface_hub flash_attn einops timm faster-whisper
-
-# Downgrade ctranslate2 if using CUDA 11.8 (allows FasterWhisper to use GPU with CUDA 11.8)
-if [ $INFERENCE_DEVICE == "cuda" ] && [ $CUDA_VERSION == "11.8" ]; then
-    python -m pip install --force-reinstall ctranslate2==3.24.0
-fi
+python -m pip install --upgrade "fastapi[standard]" transformers pillow huggingface_hub flash_attn einops timm faster-whisper
 
 # Exit if other dependencies installation failed
 if [ $? -ne 0 ]; then
     echo "Other dependencies installation failed"
     exit 1
+fi
+
+# Downgrade ctranslate2 if using CUDA 11.8 (allows FasterWhisper to use GPU with CUDA 11.8)
+if [ $INFERENCE_DEVICE == "cuda" ] && [ $CUDA_VERSION == "11.8" ]; then
+    python -m pip install --force-reinstall ctranslate2==3.24.0
+    if [ $? -ne 0 ]; then
+        echo "Ctranslate downgrade failed"
+        exit 1
+    fi
 fi
