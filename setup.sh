@@ -156,31 +156,48 @@ if [ $? -ne 0 ]; then
 fi
 
 # Install pytorch for the specified device (cpu/cuda/rocm)
-if [ $INFERENCE_DEVICE == "cpu" ]; then
-    conda install --update-all -y pytorch torchvision torchaudio cpuonly -c pytorch
-elif [ $INFERENCE_DEVICE == "cuda" ]; then
-    conda install --update-all -y pytorch torchvision torchaudio pytorch-cuda=$CUDA_VERSION -c pytorch -c nvidia
-elif [ $INFERENCE_DEVICE == "rocm" ]; then
-    python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+if [ $OPERATING_SYSTEM == "Darwin" ]; then
+    conda install --update-all -y pytorch::pytorch torchvision torchaudio -c pytorch
+
+    # Exit if pytorch installation failed
+    if [ $? -ne 0 ]; then
+        echo "PyTorch installation failed"
+        exit 1
+    fi
+elif [ $OPERATING_SYSTEM == "Linux" ]; then
+    if [ $INFERENCE_DEVICE == "cpu" ]; then
+        conda install --update-all -y pytorch torchvision torchaudio cpuonly -c pytorch
+    elif [ $INFERENCE_DEVICE == "cuda" ]; then
+        conda install --update-all -y pytorch torchvision torchaudio pytorch-cuda=$CUDA_VERSION -c pytorch -c nvidia
+
+        # Exit if pytorch installation failed
+        if [ $? -ne 0 ]; then
+            echo "PyTorch installation failed"
+            exit 1
+        fi
+
+        # Also install CUDA and cuDNN via conda
+        conda install --update-all -y nvidia/label/cuda-$CUDA_VERSION.0::cuda cudnn=8.9.2.26 -c nvidia
+
+        # Exit if CUDA installation failed
+        if [ $? -ne 0 ]; then
+            echo "CUDA installation failed"
+            exit 1
+        fi
+    elif [ $INFERENCE_DEVICE == "rocm" ]; then
+        python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+    else
+        echo "Invalid inference device"
+        exit 1
+    fi
+
+    # Exit if pytorch installation failed
+    if [ $? -ne 0 ]; then
+        echo "PyTorch installation failed"
+        exit 1
+    fi
 else
-    echo "Invalid inference device"
-    exit 1
-fi
-
-# Exit if pytorch installation failed
-if [ $? -ne 0 ]; then
-    echo "PyTorch installation failed"
-    exit 1
-fi
-
-# If using CUDA, install CUDA and cuDNN stuff via conda
-if [ $INFERENCE_DEVICE == "cuda" ]; then
-    conda install --update-all -y nvidia/label/cuda-$CUDA_VERSION.0::cuda cudnn=8.9.2.26 -c nvidia
-fi
-
-# Exit if CUDA installation failed
-if [ $? -ne 0 ]; then
-    echo "CUDA installation failed"
+    echo "Unsupported operating system"
     exit 1
 fi
 

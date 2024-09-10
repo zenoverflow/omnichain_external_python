@@ -1,9 +1,3 @@
-# OmniChain - External Python Module (Beta)
+# OmniChain - External Python Module
 
-This is the repo for OmniChain's external Python module.
-
-### Links:
-
--   [Getting started](https://omnichain.zenoverflow.com)
-
--   TODO: setup, docs
+This is a Python-based server meant to be used alongside [OmniChain](https://omnichain.zenoverflow.com) in order to provide Python-exclusive functionality.
